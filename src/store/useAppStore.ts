@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ComponentData, ComponentType, ApiEndpoint, SqlQuery, Datasource, AppPage, GlobalState, CodeGeneration, AppSettings, Theme } from '../types';
+import { saveToLocalStorage, getFromLocalStorage } from '../utils/storage';
 
 const defaultTheme: Theme = {
   id: 'default',
@@ -121,6 +122,11 @@ interface AppState {
   // Settings Actions
   updateSettings: (updates: Partial<AppSettings>) => void;
   updateTheme: (theme: Theme) => void;
+
+  // Storage Actions
+  loadFromStorage: () => void;
+  saveToStorage: () => void;
+  getCurrentPageComponents: () => ComponentData[];
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -190,12 +196,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
   
   // Component Actions
-  addComponent: (component) =>
+  addComponent: (component) => {
     set((state) => ({
       components: [...state.components, component],
-    })),
+    }));
+    get().saveToStorage();
+  },
 
-  updateComponent: (id, updates) =>
+  updateComponent: (id, updates) => {
     set((state) => ({
       components: state.components.map((comp) =>
         comp.id === id ? { ...comp, ...updates } : comp
@@ -204,14 +212,18 @@ export const useAppStore = create<AppState>((set, get) => ({
         state.selectedComponent?.id === id
           ? { ...state.selectedComponent, ...updates }
           : state.selectedComponent,
-    })),
+    }));
+    get().saveToStorage();
+  },
 
-  deleteComponent: (id) =>
+  deleteComponent: (id) => {
     set((state) => ({
       components: state.components.filter((comp) => comp.id !== id),
       selectedComponent:
         state.selectedComponent?.id === id ? null : state.selectedComponent,
-    })),
+    }));
+    get().saveToStorage();
+  },
 
   duplicateComponent: (id) =>
     set((state) => {
@@ -260,17 +272,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
   
   // Page Actions
-  addPage: (page) =>
+  addPage: (page) => {
     set((state) => ({
       pages: [...state.pages, page],
-    })),
+    }));
+    get().saveToStorage();
+  },
   
-  updatePage: (id, updates) =>
+  updatePage: (id, updates) => {
     set((state) => ({
       pages: state.pages.map((page) =>
         page.id === id ? { ...page, ...updates } : page
       ),
-    })),
+    }));
+    get().saveToStorage();
+  },
   
   deletePage: (id) =>
     set((state) => ({
@@ -296,8 +312,29 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     }),
   
-  setCurrentPage: (id) =>
-    set({ currentPageId: id }),
+  setCurrentPage: (id) => {
+    const state = get();
+    const currentPage = state.pages.find(p => p.id === state.currentPageId);
+    if (currentPage) {
+      const updatedPage = {
+        ...currentPage,
+        components: state.components
+      };
+      set((state) => ({
+        pages: state.pages.map((page) =>
+          page.id === currentPage.id ? updatedPage : page
+        ),
+      }));
+    }
+
+    const newPage = state.pages.find(p => p.id === id);
+    set({
+      currentPageId: id,
+      components: newPage?.components || [],
+      selectedComponent: null
+    });
+    get().saveToStorage();
+  },
   
   // API Actions
   addApi: (api) =>
@@ -640,15 +677,66 @@ document.addEventListener('DOMContentLoaded', () => {
     })),
   
   // Settings Actions
-  updateSettings: (updates) =>
+  updateSettings: (updates) => {
     set((state) => ({
       settings: { ...state.settings, ...updates }
-    })),
-  
-  updateTheme: (theme) =>
+    }));
+    get().saveToStorage();
+  },
+
+  updateTheme: (theme) => {
     set((state) => ({
       settings: { ...state.settings, theme }
-    })),
+    }));
+    get().saveToStorage();
+  },
+
+  // Storage Actions
+  loadFromStorage: () => {
+    const saved = getFromLocalStorage();
+    if (saved) {
+      set({
+        pages: saved.pages || [],
+        currentPageId: saved.currentPageId || '',
+        components: saved.components || [],
+        apis: saved.apis || [],
+        sqlQueries: saved.sqlQueries || [],
+        datasources: saved.datasources || [],
+        settings: saved.settings || get().settings
+      });
+
+      const currentPage = saved.pages?.find((p: AppPage) => p.id === saved.currentPageId);
+      if (currentPage) {
+        set({ components: currentPage.components || [] });
+      }
+    }
+  },
+
+  saveToStorage: () => {
+    const state = get();
+    const currentPage = state.pages.find(p => p.id === state.currentPageId);
+
+    const updatedPages = state.pages.map(page =>
+      page.id === state.currentPageId
+        ? { ...page, components: state.components }
+        : page
+    );
+
+    saveToLocalStorage({
+      pages: updatedPages,
+      currentPageId: state.currentPageId,
+      components: state.components,
+      apis: state.apis,
+      sqlQueries: state.sqlQueries,
+      datasources: state.datasources,
+      settings: state.settings
+    });
+  },
+
+  getCurrentPageComponents: () => {
+    const state = get();
+    return state.components;
+  },
 }));
 
 // Helper functions for code generation

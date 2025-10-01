@@ -8,12 +8,14 @@ interface DraggableComponentProps {
   component: ComponentData;
   isSelected: boolean;
   onSelect: () => void;
+  isLocked?: boolean;
 }
 
-export const DraggableComponent: React.FC<DraggableComponentProps> = ({ 
-  component, 
-  isSelected, 
-  onSelect 
+export const DraggableComponent: React.FC<DraggableComponentProps> = ({
+  component,
+  isSelected,
+  onSelect,
+  isLocked = false
 }) => {
   const { updateComponent, snapToGrid, gridSize } = useAppStore();
   const [isDragging, setIsDragging] = useState(false);
@@ -35,6 +37,10 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isLocked) {
+      onSelect();
+      return;
+    }
     if (e.target === componentRef.current || (e.target as HTMLElement).closest('.component-content')) {
       onSelect();
       setIsDragging(true);
@@ -72,6 +78,7 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
   }, [isDragging, dragStart, isResizing]);
 
   const handleResize = (direction: string, e: React.MouseEvent) => {
+    if (isLocked) return;
     e.stopPropagation();
     e.preventDefault();
     
@@ -135,7 +142,9 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
       }}
       className={`absolute transition-all duration-200 ${
         isSelected ? 'ring-2 ring-blue-500 ring-opacity-75 shadow-lg' : ''
-      } ${isDragSource ? 'opacity-50' : ''} ${isDragging ? 'cursor-move' : 'cursor-pointer'}`}
+      } ${isDragSource ? 'opacity-50' : ''} ${
+        isDragging ? 'cursor-move' : isLocked ? 'cursor-default' : 'cursor-pointer'
+      }`}
       style={{
         left: component.x,
         top: component.y,

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useDrag } from 'react-dnd';
-
 import { ComponentDefinition } from '../types';
+import { componentDefinitions, getAllComponentsByCategory } from '../config/componentSchemas';
 
-const componentDefinitions: ComponentDefinition[] = [
+const componentDefinitionsArray = Object.values(componentDefinitions);
+const _legacyDefinitions: ComponentDefinition[] = [
   {
     type: 'button',
     name: 'Button',
@@ -284,14 +285,14 @@ export const ComponentLibrary: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const categories = [
-    { id: 'all', name: 'All Components', count: componentDefinitions.length },
-    { id: 'basic', name: 'Basic', count: componentDefinitions.filter(d => d.category === 'basic').length },
-    { id: 'form', name: 'Form', count: componentDefinitions.filter(d => d.category === 'form').length },
-    { id: 'data', name: 'Data', count: componentDefinitions.filter(d => d.category === 'data').length },
-    { id: 'custom', name: 'Custom', count: componentDefinitions.filter(d => d.category === 'custom').length }
+    { id: 'all', name: 'All Components', count: componentDefinitionsArray.length },
+    { id: 'basic', name: 'Basic', count: componentDefinitionsArray.filter(d => d.category === 'basic').length },
+    { id: 'form', name: 'Form', count: componentDefinitionsArray.filter(d => d.category === 'form').length },
+    { id: 'data', name: 'Data', count: componentDefinitionsArray.filter(d => d.category === 'data').length },
+    { id: 'custom', name: 'Custom', count: componentDefinitionsArray.filter(d => d.category === 'custom').length }
   ];
 
-  const filteredComponents = componentDefinitions.filter(def => {
+  const filteredComponents = componentDefinitionsArray.filter(def => {
     const matchesCategory = selectedCategory === 'all' || def.category === selectedCategory;
     const matchesSearch = !searchTerm || 
       def.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
